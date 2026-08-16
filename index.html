@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="cs" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ChordMorph — konvertor akordů a textů písní</title>
+<meta name="description" content="Převádějte texty písní s akordy mezi formáty: akordy nad textem, ChordPro, inline hranaté závorky a Kytario. Transpozice, kapodastr, česká i anglická notace.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230d1117'/%3E%3Cpath d='M9 22V10l14 12V10' stroke='%2338bdaa' stroke-width='2.5' fill='none' stroke-linejoin='round'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://api.fontshare.com" crossorigin>
+<link rel="stylesheet" href="https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700&f[]=jetbrains-mono@400,700&display=swap">
+<link rel="stylesheet" href="assets/css/app.css">
+</head>
+<body>
+<a class="skip" href="#main">Přejít na obsah</a>
+
+<header class="topbar">
+  <div class="brand">
+    <svg class="logo" viewBox="0 0 32 32" aria-label="ChordMorph" role="img" fill="none">
+      <path d="M6 24V8l10 9 10-9v16" stroke="currentColor" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round"/>
+      <circle cx="16" cy="24" r="2.4" fill="currentColor"/>
+    </svg>
+    <div>
+      <span class="brand-name">ChordMorph</span>
+      <span class="brand-sub" title="ChordMorph běží celý ve tvém prohlížeči — texty se nikam neposílají.">konvertor akordů a textů — vše v prohlížeči</span>
+    </div>
+  </div>
+
+  <div class="topbar-actions">
+    <button type="button" class="btn" id="btn-sample" title="Vloží krátkou ukázkovou píseň">
+      <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Z"/><path d="M14 3v5h5"/><path d="M9 13h6M9 17h4"/></svg>
+      Vložit ukázku
+    </button>
+    <button type="button" class="btn" id="btn-swap" title="Prohodit vstupní a výstupní formát">
+      <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M17 3v13M17 3l-3.2 3.2M17 3l3.2 3.2"/><path d="M7 21V8M7 21l-3.2-3.2M7 21l3.2-3.2"/></svg>
+      Prohodit formáty
+    </button>
+    <button type="button" class="btn btn-icon" id="btn-theme" aria-label="Přepnout světlý/tmavý režim">
+      <svg class="i-moon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 12.8A8.5 8.5 0 1 1 11.2 3a6.6 6.6 0 0 0 9.8 9.8Z"/></svg>
+      <svg class="i-sun" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.2 5.2l1.4 1.4M17.4 17.4l1.4 1.4M18.8 5.2l-1.4 1.4M6.6 17.4l-1.4 1.4"/></svg>
+    </button>
+  </div>
+</header>
+
+<!-- NASTAVENÍ PŘEVODU -->
+<section class="settings" aria-label="Nastavení převodu">
+  <div class="settings-bar">
+    <div class="transpose-inline">
+      <span class="control-label">Transpozice</span>
+      <div class="stepper" title="Zkratka: Ctrl + šipka nahoru / dolů">
+        <button type="button" class="btn-step" id="tr-down" aria-label="O půltón níž" title="O půltón níž">−</button>
+        <output class="stepper-value" id="tr-value" title="Dvojklikem vrátíš na 0">0</output>
+        <button type="button" class="btn-step" id="tr-up" aria-label="O půltón výš" title="O půltón výš">+</button>
+      </div>
+      <span class="key-chip" id="key-hint">Tónina: —</span>
+    </div>
+
+    <button type="button" class="settings-toggle" id="btn-settings"
+            aria-expanded="false" aria-controls="settings-panel">
+      <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-2.7 1.1V21a2 2 0 1 1-4 0v-.1A1.6 1.6 0 0 0 7.9 19.4a1.6 1.6 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0-1.1-2.7H2a2 2 0 1 1 0-4h.1A1.6 1.6 0 0 0 4.6 7.9a1.6 1.6 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 1.8.3H9a1.6 1.6 0 0 0 1-1.5V2a2 2 0 1 1 4 0v.1a1.6 1.6 0 0 0 2.7 1.1l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8V9a1.6 1.6 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1Z"/></svg>
+      <span>Další nastavení</span>
+      <svg class="chevron" viewBox="0 0 24 24" width="15" height="15" fill="none"
+           stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="m6 9 6 6 6-6"/>
+      </svg>
+      <span class="settings-summary" id="settings-summary"></span>
+    </button>
+  </div>
+
+  <div class="settings-panel" id="settings-panel" hidden>
+    <label class="field" title="Akordy se přepočítají o daný počet pražců níž.">
+      <span class="setting-label">Kapodastr</span>
+      <select id="capo" class="select">
+        <option value="0">bez kapodastru</option>
+      </select>
+    </label>
+    <label class="field" title="V jaké notaci se akordy vypíšou.">
+      <span class="setting-label">Notace výstupu</span>
+      <select id="out-notation" class="select">
+        <option value="de">Česká / německá (H, B)</option>
+        <option value="en">Anglická (B, Bb)</option>
+      </select>
+    </label>
+    <label class="field">
+      <span class="setting-label">Vstupní notace</span>
+      <select id="in-notation" class="select">
+        <option value="auto">Rozpoznat sama</option>
+        <option value="de">Česká / německá (H, B)</option>
+        <option value="en">Anglická (B, Bb)</option>
+      </select>
+    </label>
+    <label class="field" title="Zda se odvozené akordy zapíšou s křížkem, béčkem, nebo jako v původním textu.">
+      <span class="setting-label">Posuvky</span>
+      <select id="accidental" class="select">
+        <option value="keep">Zachovat původní</option>
+        <option value="sharp">Křížky (#)</option>
+        <option value="flat">Bé (b)</option>
+      </select>
+    </label>
+    <label class="field">
+      <span class="setting-label">Zápis moll</span>
+      <select id="minor-style" class="select">
+        <option value="keep">Ponechat ze vstupu</option>
+        <option value="m">m — Em</option>
+        <option value="mi">mi — Emi</option>
+        <option value="min">min — Emin</option>
+      </select>
+    </label>
+  </div>
+</section>
+
+<main id="main" class="layout">
+
+  <!-- VSTUP -->
+  <section class="panel" aria-labelledby="h-in">
+    <div class="panel-head">
+      <h2 id="h-in" class="panel-title"><span class="step-badge">1</span>Vstup</h2>
+      <div class="panel-tools">
+        <label class="field field-inline">
+          <span class="control-label">Formát</span>
+          <select id="in-format" class="select select-format"></select>
+        </label>
+        <span class="detect-badge" id="detect-badge" hidden></span>
+      </div>
+    </div>
+    <div class="panel-body" id="input-body">
+      <div class="drop-hint" id="drop-hint" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V5"/><path d="m8 9 4-4 4 4"/><path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg>
+        <span>Pusť soubor sem</span>
+      </div>
+      <textarea id="input" class="editor" spellcheck="false" placeholder="Sem vlož text písně s akordy — v jakémkoliv podporovaném formátu.&#10;&#10;Autodetekce pozná zápis sama, nebo formát vyber ručně."></textarea>
+    </div>
+    <div class="panel-foot">
+      <label class="btn btn-file" tabindex="0">
+        <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7.5A1.5 1.5 0 0 1 4.5 6h4l2 2.5h7A1.5 1.5 0 0 1 19 10v7.5A1.5 1.5 0 0 1 17.5 19h-13A1.5 1.5 0 0 1 3 17.5Z"/></svg>
+        Otevřít soubor
+        <input type="file" id="file-input" accept=".txt,.cho,.chopro,.chordpro,.pro,.crd,.md" hidden>
+      </label>
+      <button type="button" class="btn btn-quiet" id="btn-clear">
+        <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg>
+        Vyčistit
+      </button>
+      <span class="stat" id="in-stat"></span>
+    </div>
+  </section>
+
+  <!-- VÝSTUP -->
+  <section class="panel" aria-labelledby="h-out">
+    <div class="panel-head panel-head-out">
+      <h2 id="h-out" class="panel-title"><span class="step-badge">2</span>Výstup</h2>
+      <div class="panel-tools">
+        <label class="field field-inline">
+          <span class="control-label">Formát</span>
+          <select id="out-format" class="select select-format select-accent"></select>
+        </label>
+        <div class="segmented" role="tablist" aria-label="Zobrazení výstupu">
+          <button type="button" class="seg is-active" id="tab-code" role="tab" aria-selected="true">Kód</button>
+          <button type="button" class="seg" id="tab-preview" role="tab" aria-selected="false">Náhled</button>
+        </div>
+      </div>
+    </div>
+    <div class="panel-body">
+      <textarea id="output" class="editor" spellcheck="false" readonly></textarea>
+      <div id="preview" class="sheet" hidden></div>
+      <div class="empty-state" id="output-empty">
+        <svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/></svg>
+        <p class="empty-title">Zatím není co převádět</p>
+        <p class="empty-text">Vlož text písně do pole vlevo, nebo si nech vložit ukázku.</p>
+        <button type="button" class="btn" id="btn-sample-2">
+          <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Z"/><path d="M14 3v5h5"/><path d="M9 13h6M9 17h4"/></svg>
+          Vložit ukázku
+        </button>
+      </div>
+    </div>
+    <div class="panel-foot">
+      <button type="button" class="btn btn-primary" id="btn-copy">
+        <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/></svg>
+        Kopírovat
+      </button>
+      <button type="button" class="btn" id="btn-download">
+        <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11M12 15l-4-4M12 15l4-4"/><path d="M4 19h16"/></svg>
+        Uložit soubor
+      </button>
+      <button type="button" class="btn" id="btn-print">
+        <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 9V4h10v5"/><rect x="4" y="9" width="16" height="7" rx="2"/><path d="M7 14h10v6H7z"/></svg>
+        Tisk / PDF
+      </button>
+      <span class="stat" id="out-stat"></span>
+    </div>
+    <p class="format-note" id="format-note"></p>
+  </section>
+</main>
+
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+<!-- tisková oblast -->
+<div id="print-area" class="print-area" aria-hidden="true"></div>
+
+<script src="assets/js/chords.js"></script>
+<script src="assets/js/model.js"></script>
+<script src="assets/js/formats/common.js"></script>
+<script src="assets/js/formats/chords-over.js"></script>
+<script src="assets/js/formats/chordpro.js"></script>
+<script src="assets/js/formats/inline.js"></script>
+<script src="assets/js/formats/kytario.js"></script>
+<script src="assets/js/detect.js"></script>
+<script src="assets/js/render.js"></script>
+<script src="assets/js/app.js"></script>
+<script data-pplx-inline-edit>
+(function () {
+  if (window === window.top) return;
+
+  const allowedParentOrigins = ["https://www.perplexity.ai","https://perplexity.ai","https://testing.perplexity.ai","https://staging.perplexity.ai","https://*.preview.i.perplexity.ai","http://perplexity.localhost","http://localhost:1420","http://127.0.0.1:1420","http://localhost:3000","http://127.0.0.1:3000","http://localhost:5173","http://127.0.0.1:5173"];
+  const MAX_FONT_BYTES = 500 * 1024;
+  const MAX_TOTAL_FONT_BYTES = 2 * 1024 * 1024;
+  let scrollForwarding = false;
+  let scrollRaf = 0;
+  let trustedTopOrigin = null;
+
+  // Allow entries like "https://*.preview.i.perplexity.ai" — the wildcard
+  // matches a single DNS label (no dots), so "https://*.foo" cannot stretch
+  // across multiple labels.
+  function matchesAllowedOrigin(origin) {
+    if (!origin) return false;
+    for (const entry of allowedParentOrigins) {
+      if (!entry.includes("*")) {
+        if (entry === origin) return true;
+        continue;
+      }
+      const pattern = new RegExp(
+        "^" +
+          entry.replace(/[.+?^${}()|[\]\\]/g, "\\$&").replace(/\*/g, "[^.]+") +
+          "$",
+      );
+      if (pattern.test(origin)) return true;
+    }
+    return false;
+  }
+
+  // Trust decision: when the sender is same-origin-visible (event.origin is a
+  // real origin like https://www.perplexity.ai) we trust event.origin directly.
+  // When event.origin is "null" (opaque broker srcdoc), we fall back to the
+  // broker's stamped `parentOrigin` to identify the top window. The fallback
+  // is claim-only — we rely on the browser's native `targetOrigin` enforcement
+  // on the response path (see postToTrustedTop) to ensure replies can't be
+  // delivered to anyone but the actual top window of that claimed origin.
+  function getTrustedParentOrigin(event) {
+    const forwardedParentOrigin =
+      typeof event.data.parentOrigin === "string" ? event.data.parentOrigin : null;
+    const parentOrigin = event.origin === "null" ? forwardedParentOrigin : event.origin;
+    return matchesAllowedOrigin(parentOrigin) ? parentOrigin : null;
+  }
+
+  // All responses go to window.top with targetOrigin = the allowlisted origin.
+  // An attacker that iframes us inside their own null-origin broker can claim
+  // any parentOrigin they like, but the browser will drop the reply whenever
+  // the real top's origin doesn't match — so the screenshot never leaves.
+  function postToTrustedTop(message) {
+    if (!trustedTopOrigin) return;
+    try {
+      window.top.postMessage(message, trustedTopOrigin);
+    } catch (_error) {}
+  }
+
+  function inlineAll(original, clone) {
+    if (original.nodeType !== 1 || clone.nodeType !== 1) return;
+
+    try {
+      const computedStyle = getComputedStyle(original);
+      // cssText on a computed style is the serialized declaration in modern
+      // Chromium/Safari — a single read beats enumerating ~400 longhand
+      // properties. Firefox returns "" here, so we fall back on empty.
+      const serialized = computedStyle.cssText;
+      if (serialized) {
+        clone.style.cssText = serialized;
+      } else {
+        const parts = new Array(computedStyle.length);
+        for (let index = 0; index < computedStyle.length; index += 1) {
+          const property = computedStyle[index];
+          parts[index] = `${property}:${computedStyle.getPropertyValue(property)};`;
+        }
+        clone.style.cssText = parts.join("");
+      }
+    } catch (_error) {}
+
+    const originalChildren = original.children;
+    const clonedChildren = clone.children;
+    for (
+      let index = 0;
+      index < originalChildren.length && index < clonedChildren.length;
+      index += 1
+    ) {
+      inlineAll(originalChildren[index], clonedChildren[index]);
+    }
+  }
+
+  function extractFontUrl(srcValue) {
+    const matches = [
+      ...srcValue.matchAll(
+        /url\(["']?([^"')]+)["']?\)(?:\s*format\(["']?([^"')]+)["']?\))?/gi,
+      ),
+    ];
+    if (matches.length === 0) return null;
+    const woff2 = matches.find((m) => m[2] && m[2].toLowerCase().includes("woff2"));
+    if (woff2) return woff2[1];
+    const woff = matches.find((m) => m[2] && m[2].toLowerCase().includes("woff"));
+    if (woff) return woff[1];
+    return matches[0][1];
+  }
+
+  // Cache resolved font URL -> data URI across captures. Fonts on a page
+  // essentially never change, and a batch run emits multiple captures back to
+  // back — without this we'd refetch + re-base64 every time.
+  const fontDataUriCache = new Map();
+  const SRC_DECLARATION_RE = /src\s*:\s*[^;}]+/i;
+
+  async function fetchAsDataUri(url) {
+    if (fontDataUriCache.has(url)) return fontDataUriCache.get(url);
+    let dataUri = null;
+    try {
+      const response = await fetch(url, { mode: "cors", credentials: "omit" });
+      if (response.ok) {
+        const blob = await response.blob();
+        if (blob.size <= MAX_FONT_BYTES) {
+          dataUri = await new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onloadend = () =>
+              resolve(typeof reader.result === "string" ? reader.result : null);
+            reader.onerror = () => resolve(null);
+            reader.readAsDataURL(blob);
+          });
+        }
+      }
+    } catch (_error) {
+      dataUri = null;
+    }
+    fontDataUriCache.set(url, dataUri);
+    return dataUri;
+  }
+
+  function collectFontFaceRuleTexts() {
+    const rules = [];
+    for (const sheet of document.styleSheets) {
+      let cssRules;
+      try {
+        cssRules = sheet.cssRules;
+      } catch (_error) {
+        continue;
+      }
+      if (!cssRules) continue;
+      for (const rule of cssRules) {
+        const cssText = rule.cssText || "";
+        if (cssText.startsWith("@font-face")) rules.push(cssText);
+      }
+    }
+    return rules;
+  }
+
+  async function buildInlinedFontCss() {
+    const ruleTexts = collectFontFaceRuleTexts();
+    if (ruleTexts.length === 0) return null;
+
+    const resolved = ruleTexts.map((cssText) => {
+      if (!SRC_DECLARATION_RE.test(cssText)) return null;
+      const srcMatch = cssText.match(/src\s*:\s*([^;}]+)[;}]/i);
+      if (!srcMatch) return null;
+      const url = extractFontUrl(srcMatch[1]);
+      if (!url) return null;
+      try {
+        return { cssText, url: new URL(url, document.baseURI).href };
+      } catch (_error) {
+        return null;
+      }
+    });
+
+    const dataUris = await Promise.all(
+      resolved.map((entry) => (entry ? fetchAsDataUri(entry.url) : Promise.resolve(null))),
+    );
+
+    const inlined = [];
+    let totalBytes = 0;
+    for (let index = 0; index < resolved.length; index += 1) {
+      const entry = resolved[index];
+      const dataUri = dataUris[index];
+      if (!entry || !dataUri) continue;
+      const approxBytes = dataUri.length * 0.75;
+      if (totalBytes + approxBytes > MAX_TOTAL_FONT_BYTES) break;
+      totalBytes += approxBytes;
+      inlined.push(entry.cssText.replace(SRC_DECLARATION_RE, `src: url("${dataUri}")`));
+    }
+    return inlined.length > 0 ? inlined.join("\n") : null;
+  }
+
+  function stripExternal(clone) {
+    const images = clone.querySelectorAll("img");
+    for (let index = 0; index < images.length; index += 1) {
+      const src = images[index].getAttribute("src");
+      if (src && !src.startsWith("data:")) images[index].removeAttribute("src");
+    }
+
+    const elements = clone.querySelectorAll("*");
+    for (let index = 0; index < elements.length; index += 1) {
+      const style = elements[index].style.cssText;
+      if (style && style.includes("url(")) {
+        elements[index].style.cssText = style.replace(
+          /url\(["']?(?!data:)[^)"']*["']?\)/gi,
+          "none",
+        );
+      }
+    }
+  }
+
+  function emitScroll() {
+    scrollRaf = 0;
+    if (!scrollForwarding) return;
+    postToTrustedTop({
+      type: "INLINE_EDIT_SCROLL",
+      scrollX: window.scrollX,
+      scrollY: window.scrollY,
+    });
+  }
+
+  window.addEventListener(
+    "scroll",
+    function () {
+      if (!scrollForwarding || scrollRaf) return;
+      scrollRaf = requestAnimationFrame(emitScroll);
+    },
+    { passive: true, capture: true },
+  );
+
+  async function handleCaptureRequest(event) {
+    const requestId = event.data.requestId;
+    const scrollX = window.scrollX;
+    const scrollY = window.scrollY;
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+
+    function postResult(dataUrl) {
+      postToTrustedTop({
+        type: "INLINE_EDIT_SCREENSHOT_RESULT",
+        requestId,
+        dataUrl,
+        scrollX,
+        scrollY,
+      });
+    }
+
+    try {
+      // Wait for any pending web fonts to resolve so both inline metrics and
+      // the @font-face inlining below see the same loaded faces.
+      if (document.fonts && document.fonts.ready) {
+        try {
+          await document.fonts.ready;
+        } catch (_error) {}
+      }
+
+      const clone = document.documentElement.cloneNode(true);
+      inlineAll(document.documentElement, clone);
+
+      const removedNodes = clone.querySelectorAll("script,link[rel=\"stylesheet\"],style");
+      for (let index = 0; index < removedNodes.length; index += 1) {
+        removedNodes[index].remove();
+      }
+
+      stripExternal(clone);
+
+      // Re-embed web fonts as data-URI @font-face rules so the SVG rasterizer
+      // can resolve them — external font URLs aren't fetched during
+      // foreignObject rendering, which would otherwise force a fallback face
+      // and change text metrics.
+      const inlinedFontCss = await buildInlinedFontCss();
+      if (inlinedFontCss) {
+        const styleEl = document.createElement("style");
+        styleEl.textContent = inlinedFontCss;
+        const head = clone.querySelector("head");
+        if (head) head.appendChild(styleEl);
+        else clone.insertBefore(styleEl, clone.firstChild);
+      }
+
+      const html = new XMLSerializer().serializeToString(clone);
+      const svg =
+        `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}">` +
+        '<foreignObject width="100%" height="100%">' +
+        `<div xmlns="http://www.w3.org/1999/xhtml" style="width:${width}px;height:${height}px;overflow:hidden">` +
+        `<div style="position:relative;left:-${scrollX}px;top:-${scrollY}px">` +
+        html +
+        "</div></div></foreignObject></svg>";
+      const svgUrl = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+      const image = new Image();
+      image.onload = function () {
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        canvas.getContext("2d").drawImage(image, 0, 0);
+        postResult(canvas.toDataURL("image/png"));
+      };
+      image.onerror = function () {
+        postResult(null);
+      };
+      image.src = svgUrl;
+    } catch (_error) {
+      postResult(null);
+    }
+  }
+
+  window.addEventListener("message", function (event) {
+    if (!event.data) return;
+    // Only accept messages from the direct parent frame. Blocks sibling /
+    // unrelated-window postMessage senders that could otherwise reach us.
+    if (event.source !== window.parent) return;
+
+    const trustedParentOrigin = getTrustedParentOrigin(event);
+    if (!trustedParentOrigin) return;
+    trustedTopOrigin = trustedParentOrigin;
+
+    if (event.data.type === "INLINE_EDIT_SCROLL_START") {
+      scrollForwarding = true;
+      emitScroll();
+      return;
+    }
+
+    if (event.data.type === "INLINE_EDIT_SCROLL_STOP") {
+      scrollForwarding = false;
+      if (scrollRaf) cancelAnimationFrame(scrollRaf);
+      scrollRaf = 0;
+      return;
+    }
+
+    if (event.data.type !== "INLINE_EDIT_CAPTURE_REQUEST") return;
+
+    handleCaptureRequest(event);
+  });
+})();
+
+
+</script></body>
+</html>
