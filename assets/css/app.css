@@ -598,12 +598,9 @@ body {
   .brand-sub { display: none; }
   /* Akce v hlavičce se roztáhnou přes celou šířku, ať nic nepřeteče. */
   .topbar-actions { width: 100%; }
-  .topbar-actions .btn:not(.btn-icon) { flex: 1 1 0; min-width: 0; }
+  .topbar-actions .btn:not(.btn-icon):not(#btn-theme) { flex: 1 1 0; min-width: 0; }
+  #btn-theme { flex: none !important; }
   .btn { padding-inline: var(--space-3); }
-  .panel-head { flex-direction: column; align-items: stretch; }
-  .panel-tools { justify-content: space-between; }
-  .panel-tools .field-inline { flex: 1 1 100%; min-width: 0; }
-  .panel-tools .select-format { flex: 1; min-width: 0; }
   .panel-head, .panel-foot { padding: var(--space-3); }
   .settings-bar { gap: var(--space-3); }
   .transpose-inline { width: 100%; justify-content: space-between; }
