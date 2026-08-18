@@ -7,13 +7,14 @@
   var state = {
     inFormat: 'auto',
     outFormat: 'chordpro',
-    transpose: 0,
     outNotation: 'de',
     inNotation: 'auto',
     accidental: 'keep',
     minorStyle: 'keep',
     view: 'code',
-    detected: null
+    detected: null,
+    transpose: 0,
+    originalText: null
   };
 
   // Ukázka (vlastní text). Zapsaná v ChordPro a do formátu „nad textem“
@@ -46,7 +47,7 @@
 
   function opts() {
     return {
-      shift: state.transpose,
+      shift: 0,
       notation: state.outNotation,
       inputNotation: state.inNotation,
       accidental: state.accidental,
@@ -95,7 +96,6 @@
       $('output').value = '';
       $('preview').innerHTML = '';
       if (autoOpt) autoOpt.textContent = 'Rozpoznat automaticky';
-      $('key-hint').textContent = 'Tónina: —';
       renderPreview(null);
       showEmptyState(true);
       return;
@@ -126,8 +126,6 @@
       $('output').classList.toggle('is-mono', !!outFmt.mono);
       renderPreview(song, o);
       var key = CM.chords.guessKey(song, o);
-      $('key-hint').textContent = 'Tónina: ' + (key || '—') +
-        (o.shift ? '  (posun ' + (o.shift > 0 ? '+' : '') + o.shift + ')' : '');
     } catch (e) {
       $('output').value = 'Převod se nepovedl: ' + e.message;
       console.error(e);
@@ -208,7 +206,12 @@
   }
 
   function bind() {
-    $('input').addEventListener('input', schedule);
+    $('input').addEventListener('input', function() {
+      state.transpose = 0;
+      $('tr-value').textContent = '0';
+      state.originalText = null;
+      schedule();
+    });
     $('in-format').addEventListener('change', function () { state.inFormat = this.value; convert(); });
     $('out-format').addEventListener('change', function () { state.outFormat = this.value; convert(); });
     $('out-notation').addEventListener('change', function () { state.outNotation = this.value; convert(); updateSettingsSummary(); });
@@ -217,9 +220,8 @@
     $('minor-style').addEventListener('change', function () { state.minorStyle = this.value; convert(); updateSettingsSummary(); });
     $('btn-settings').addEventListener('click', function () { toggleSettings(); });
 
-    $('tr-up').addEventListener('click', function () { setTranspose(state.transpose + 1); });
-    $('tr-down').addEventListener('click', function () { setTranspose(state.transpose - 1); });
-    $('tr-value').addEventListener('dblclick', function () { setTranspose(0); });
+    $('tr-up').addEventListener('click', function () { setTranspose(1); });
+    $('tr-down').addEventListener('click', function () { setTranspose(-1); });
 
     function insertSample() {
       $('input').value = sampleText();
@@ -283,33 +285,125 @@
       });
     }
 
-    $('btn-replace-all').addEventListener('click', function() {
+    function getSearchRegex() {
       var findStr = $('sr-search').value;
-      var replaceStr = $('sr-replace').value;
-      if (!findStr) return;
-
+      if (!findStr) return null;
       var isCaseSensitive = $('sr-case').checked;
       var isWord = $('sr-word').checked;
       var isRegex = $('sr-regex').checked;
+      var escapedFind = isRegex ? findStr : findStr.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      if (isWord) {
+        escapedFind = '\\b' + escapedFind + '\\b';
+      }
+      var flags = 'g' + (isCaseSensitive ? '' : 'i');
+      try {
+        return new RegExp(escapedFind, flags);
+      } catch (e) {
+        return null;
+      }
+    }
 
+    function findNext(reverse) {
+      var re = getSearchRegex();
+      if (!re) {
+        toast('Prázdný nebo neplatný výraz');
+        return false;
+      }
+      var input = $('input');
+      var text = input.value;
+      
+      var matches = [];
+      var match;
+      while ((match = re.exec(text)) !== null) {
+        matches.push({ index: match.index, length: match[0].length });
+        if (!re.global) break;
+      }
+      
+      if (matches.length === 0) {
+        toast('Nenalezeno');
+        return false;
+      }
+      
+      var cursorPos = input.selectionEnd || 0;
+      var cursorStart = input.selectionStart || 0;
+      var targetMatch = null;
+      
+      if (reverse) {
+        for (var i = matches.length - 1; i >= 0; i--) {
+          if (matches[i].index < cursorStart) {
+            targetMatch = matches[i];
+            break;
+          }
+        }
+        if (!targetMatch) targetMatch = matches[matches.length - 1];
+      } else {
+        for (var j = 0; j < matches.length; j++) {
+          if (matches[j].index >= cursorPos) {
+            targetMatch = matches[j];
+            break;
+          }
+        }
+        if (!targetMatch) targetMatch = matches[0];
+      }
+      
+      if (targetMatch) {
+        input.focus();
+        input.setSelectionRange(targetMatch.index, targetMatch.index + targetMatch.length);
+        return true;
+      }
+      return false;
+    }
+
+    $('btn-find-next').addEventListener('click', function() { findNext(false); });
+    $('btn-find-prev').addEventListener('click', function() { findNext(true); });
+
+    $('btn-replace').addEventListener('click', function() {
+      var input = $('input');
+      var selStart = input.selectionStart;
+      var selEnd = input.selectionEnd;
+      if (selStart === selEnd) {
+         if (!findNext(false)) return;
+         return;
+      }
+      
+      var re = getSearchRegex();
+      if (!re) return;
+      var text = input.value;
+      var selectedText = text.substring(selStart, selEnd);
+      
+      var match;
+      var isMatch = false;
+      while ((match = re.exec(text)) !== null) {
+        if (match.index === selStart && match[0].length === (selEnd - selStart)) {
+           isMatch = true;
+           break;
+        }
+      }
+      
+      if (!isMatch) {
+         findNext(false);
+         return;
+      }
+      
+      var replaceStr = $('sr-replace').value;
+      var newText = selectedText.replace(new RegExp(re.source, re.flags.replace('g', '')), replaceStr);
+      
+      input.setRangeText(newText, selStart, selEnd, 'end');
+      convert();
+      findNext(false);
+    });
+
+    $('btn-replace-all').addEventListener('click', function() {
+      var re = getSearchRegex();
+      if (!re) return;
+      var replaceStr = $('sr-replace').value;
       var text = $('input').value;
       var originalText = text;
 
       try {
-        if (isRegex || isWord || !isCaseSensitive) {
-          var escapedFind = isRegex ? findStr : findStr.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-          if (isWord) {
-            escapedFind = '\\b' + escapedFind + '\\b';
-          }
-          var flags = 'g' + (isCaseSensitive ? '' : 'i');
-          var re = new RegExp(escapedFind, flags);
-          text = text.replace(re, replaceStr);
-        } else {
-          text = text.split(findStr).join(replaceStr);
-        }
-
-        if (text !== originalText) {
-          $('input').value = text;
+        var newText = text.replace(re, replaceStr);
+        if (newText !== originalText) {
+          $('input').value = newText;
           convert();
           toast('Nahrazeno');
         } else {
@@ -345,28 +439,66 @@
       e.target.value = '';
     });
 
-    $('tab-code').addEventListener('click', function () { setView('code'); });
-    $('tab-preview').addEventListener('click', function () { setView('preview'); });
+    $('btn-toggle-preview').addEventListener('click', function () { 
+      setView(state.view === 'code' ? 'preview' : 'code'); 
+    });
 
     $('btn-theme').addEventListener('click', function () {
       var next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
       document.documentElement.setAttribute('data-theme', next);
     });
 
+    $('tr-value').addEventListener('click', function () {
+      if (state.transpose !== 0) {
+        if (state.originalText !== null) {
+          $('input').value = state.originalText;
+          state.originalText = null;
+        }
+        state.transpose = 0;
+        $('tr-value').textContent = '0';
+        convert();
+        toast('Vráceno do původní tóniny');
+      }
+    });
+
     document.addEventListener('keydown', function (e) {
       if (!(e.ctrlKey || e.metaKey)) return;
-      if (e.key === 'ArrowUp') { e.preventDefault(); setTranspose(state.transpose + 1); }
-      if (e.key === 'ArrowDown') { e.preventDefault(); setTranspose(state.transpose - 1); }
+      if (e.key === 'ArrowUp') { e.preventDefault(); setTranspose(1); }
+      if (e.key === 'ArrowDown') { e.preventDefault(); setTranspose(-1); }
     });
 
   }
 
-  function setTranspose(v) {
-    if (v > 11) v = 11;
-    if (v < -11) v = -11;
-    state.transpose = v;
-    $('tr-value').textContent = (v > 0 ? '+' : '') + v;
-    convert();
+  function setTranspose(delta) {
+    var newT = state.transpose + delta;
+    if (newT > 11) newT = 11;
+    if (newT < -11) newT = -11;
+
+    if (state.originalText === null) {
+      state.originalText = $('input').value;
+    }
+    
+    var text = state.originalText;
+    if (!text.trim()) return;
+
+    var res = resolveInFormat(text);
+    var inFmt = CM.formats.get(res.id);
+    if (!inFmt) return;
+
+    var o = opts();
+    try {
+      var song = inFmt.parse(text, o);
+      var outOpts = Object.assign({}, o, { shift: newT });
+      var outText = inFmt.serialize(song, outOpts);
+      
+      $('input').value = outText;
+      state.transpose = newT;
+      $('tr-value').textContent = (newT > 0 ? '+' : '') + newT;
+      convert();
+      toast(delta > 0 ? 'Transponováno výš' : 'Transponováno níž');
+    } catch (e) {
+      toast('Nelze transponovat chybějící nebo vadný vstup');
+    }
   }
 
   function setView(v) {
@@ -374,10 +506,8 @@
     var code = v === 'code';
     $('output').hidden = !code;
     $('preview').hidden = code;
-    $('tab-code').classList.toggle('is-active', code);
-    $('tab-preview').classList.toggle('is-active', !code);
-    $('tab-code').setAttribute('aria-selected', String(code));
-    $('tab-preview').setAttribute('aria-selected', String(!code));
+    $('btn-toggle-preview').classList.toggle('is-active', !code);
+    $('btn-toggle-preview').title = code ? 'Zobrazit náhled s akordy' : 'Zobrazit zdrojový kód';
   }
 
   function copyText(val) {

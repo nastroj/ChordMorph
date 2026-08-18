@@ -164,6 +164,8 @@ body {
 }
 .btn-icon svg { width: 18px; height: 18px; }
 .btn-icon:hover { background: var(--surface-2); color: var(--text); }
+.btn-icon.is-active { background: var(--accent); color: #fff; border-color: var(--accent); }
+[data-theme='dark'] .btn-icon.is-active { color: #1e1b4b; }
 .btn-icon-danger:hover { background: #fee2e2; color: #dc2626; }
 [data-theme='dark'] .btn-icon-danger:hover { background: rgba(220, 38, 38, 0.2); color: #f87171; }
 .btn-icon-sm { width: 28px; height: 28px; }
@@ -198,6 +200,7 @@ body {
   min-width: 0;
   max-width: 100%;
   cursor: pointer;
+  text-overflow: ellipsis; white-space: nowrap; overflow: hidden;
   transition: border-color 0.15s var(--ease), box-shadow 0.15s var(--ease);
 }
 .text-input {
@@ -208,7 +211,7 @@ body {
 .select:focus-visible, .text-input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 
 /* Volba formátu je hlavní rozhodnutí na stránce — dostane víc váhy. */
-.select-format { font-weight: 600; padding-inline: var(--space-3); max-width: 250px; }
+.select-format { font-weight: 600; padding-inline: var(--space-3); max-width: 210px; }
 .select-accent {
   border-color: color-mix(in oklch, var(--accent) 55%, var(--border));
   background: var(--accent-soft); color: var(--text);
@@ -216,10 +219,7 @@ body {
 }
 
 .editor-toolbar {
-  display: flex; align-items: center; gap: var(--space-2);
-  padding: var(--space-2) var(--space-4);
-  border-bottom: 1px solid var(--border);
-  background: var(--surface);
+  display: flex; align-items: center; gap: var(--space-1);
 }
 
 .toolbar-divider {
@@ -286,8 +286,8 @@ body {
 
 .panel-head {
   display: flex; align-items: center; justify-content: space-between;
-  gap: var(--space-3) var(--space-4); flex-wrap: wrap;
-  padding: var(--space-3) var(--space-4);
+  gap: var(--space-2) var(--space-3); flex-wrap: nowrap;
+  padding: var(--space-2) var(--space-3);
   border-bottom: 1px solid var(--divider);
   background: var(--surface-2);
 }
@@ -305,7 +305,7 @@ body {
   font-size: 0.75rem; font-weight: 700; font-variant-numeric: tabular-nums;
 }
 [data-theme='dark'] .step-badge { color: #1e1b4b; }
-.panel-tools { display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; }
+.panel-tools { display: flex; align-items: center; gap: var(--space-3); flex-wrap: nowrap; min-width: 0; flex-shrink: 1; }
 
 .detect-badge::before { content: '✓'; margin-right: 0.35em; font-weight: 700; }
 .detect-badge {
@@ -408,11 +408,11 @@ body {
 }
 .settings-bar {
   display: flex; align-items: center; justify-content: space-between;
-  gap: var(--space-4); flex-wrap: wrap;
+  gap: var(--space-2); flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none;
   padding: var(--space-3) clamp(var(--space-4), 3vw, var(--space-8));
 }
 
-.transpose-inline { display: flex; align-items: center; gap: var(--space-3); min-width: 0; }
+.transpose-inline { display: flex; align-items: center; gap: var(--space-2); min-width: 0; flex-shrink: 0; }
 .transpose-inline .hint { white-space: nowrap; }
 
 .settings-toggle {
@@ -450,7 +450,7 @@ body {
 .hint { margin: 0; font-size: var(--text-xs); color: var(--text-faint); }
 
 .stepper {
-  display: grid; grid-template-columns: 40px 52px 40px; align-items: stretch;
+  display: grid; grid-template-columns: 36px 44px 36px; align-items: stretch;
   border: 1px solid var(--border); border-radius: var(--radius-md); overflow: hidden;
   background: var(--surface-2); flex: none;
   box-shadow: 0 1px 1px rgba(16, 20, 26, 0.04);
@@ -594,18 +594,11 @@ body {
 }
 
 @media (max-width: 640px) {
-  .topbar { flex-wrap: wrap; }
   .brand-sub { display: none; }
-  /* Akce v hlavičce se roztáhnou přes celou šířku, ať nic nepřeteče. */
-  .topbar-actions { width: 100%; }
-  .topbar-actions .btn:not(.btn-icon):not(#btn-theme) { flex: 1 1 0; min-width: 0; }
-  #btn-theme { flex: none !important; }
-  .btn { padding-inline: var(--space-3); }
+  .btn { padding-inline: var(--space-2); font-size: var(--text-xs); }
+  .btn .ico { width: 14px; height: 14px; }
   .panel-head, .panel-foot { padding: var(--space-3); }
-  .settings-bar { gap: var(--space-3); }
-  .transpose-inline { width: 100%; justify-content: space-between; }
-  .settings-toggle { width: 100%; justify-content: flex-start; }
-  .stat { width: 100%; margin-left: 0; }
+  .settings-bar { gap: var(--space-2); padding-inline: var(--space-2); flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
   .toast { left: var(--space-4); right: var(--space-4); bottom: var(--space-4); text-align: center; }
   .btn-copy-wide { flex: 1 1 100%; }
 }
