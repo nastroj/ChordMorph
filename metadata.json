@@ -1,0 +1,8 @@
+{
+  "name": "ChordMorph",
+  "description": "ChordMorph - converter for chords and lyrics",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

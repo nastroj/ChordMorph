@@ -8,7 +8,6 @@
     inFormat: 'auto',
     outFormat: 'chordpro',
     transpose: 0,
-    capo: 0,
     outNotation: 'de',
     inNotation: 'auto',
     accidental: 'keep',
@@ -47,7 +46,7 @@
 
   function opts() {
     return {
-      shift: state.transpose - state.capo,
+      shift: state.transpose,
       notation: state.outNotation,
       inputNotation: state.inNotation,
       accidental: state.accidental,
@@ -76,16 +75,6 @@
     $('out-format').value = state.outFormat;
   }
 
-  function fillCapo() {
-    var sel = $('capo');
-    for (var i = 1; i <= 11; i++) {
-      var o = document.createElement('option');
-      o.value = String(i);
-      o.textContent = i + '. pražec';
-      sel.appendChild(o);
-    }
-  }
-
   /* ---------- převod ---------- */
 
   function resolveInFormat(text) {
@@ -96,15 +85,17 @@
 
   function convert() {
     var text = $('input').value;
-    var badge = $('detect-badge');
+    var autoOpt = $('in-format').querySelector('option[value="auto"]');
+    
+    try {
+      localStorage.setItem('chordmorph_input', text);
+    } catch (e) { /* ignore quota or privacy errors */ }
 
     if (!text.trim()) {
       $('output').value = '';
       $('preview').innerHTML = '';
-      badge.hidden = true;
-      updateStats(null);
+      if (autoOpt) autoOpt.textContent = 'Rozpoznat automaticky';
       $('key-hint').textContent = 'Tónina: —';
-      $('format-note').textContent = '';
       renderPreview(null);
       showEmptyState(true);
       return;
@@ -117,16 +108,18 @@
     if (!inFmt || !outFmt) return;
 
     if (res.auto) {
-      badge.hidden = false;
-      badge.textContent = 'rozpoznáno: ' + inFmt.short;
+      state.inFormat = res.id;
+      $('in-format').value = res.id;
+      if (autoOpt) autoOpt.textContent = 'Rozpoznat automaticky';
+      updateSettingsSummary();
     } else {
-      badge.hidden = true;
+      if (autoOpt) autoOpt.textContent = 'Rozpoznat automaticky';
     }
 
     var o = opts();
     try {
       var song = inFmt.parse(text, o);
-      // v režimu „zachovat původní" potřebujeme vědět, jaká posuvka v písni převažuje
+      // v režimu „zachovat původní“ potřebujeme vědět, jaká posuvka v písni převažuje
       if (o.accidental === 'keep') o.fallbackAccidental = CM.chords.dominantAccidental(song);
       var out = outFmt.serialize(song, o);
       $('output').value = out;
@@ -135,8 +128,6 @@
       var key = CM.chords.guessKey(song, o);
       $('key-hint').textContent = 'Tónina: ' + (key || '—') +
         (o.shift ? '  (posun ' + (o.shift > 0 ? '+' : '') + o.shift + ')' : '');
-      updateStats(song, out);
-      $('format-note').textContent = outFmt.description + (outFmt.docsUrl ? '' : '');
     } catch (e) {
       $('output').value = 'Převod se nepovedl: ' + e.message;
       console.error(e);
@@ -181,19 +172,6 @@
     el.innerHTML = CM.render.renderSong(song, o);
   }
 
-  function updateStats(song, out) {
-    if (!song) { $('in-stat').textContent = ''; $('out-stat').textContent = ''; return; }
-    var chords = 0, lines = 0;
-    song.sections.forEach(function (s) {
-      s.lines.forEach(function (l) {
-        lines++;
-        chords += CM.model.chordsOf(l).length;
-      });
-    });
-    $('in-stat').textContent = song.sections.length + ' sekcí · ' + lines + ' řádků · ' + chords + ' akordů';
-    $('out-stat').textContent = out ? out.split('\n').length + ' řádků' : '';
-  }
-
   /* ---------- lišta nastavení ---------- */
 
   var settingsOpen = false;
@@ -213,7 +191,6 @@
    */
   function updateSettingsSummary() {
     var parts = [];
-    if (state.capo) parts.push('kapo ' + state.capo);
     if (state.outNotation !== 'de') parts.push('anglická notace');
     if (state.inNotation !== 'auto') parts.push('vstup ' + (state.inNotation === 'de' ? 'CZ' : 'EN'));
     if (state.accidental === 'sharp') parts.push('křížky');
@@ -238,7 +215,6 @@
     $('in-notation').addEventListener('change', function () { state.inNotation = this.value; convert(); updateSettingsSummary(); });
     $('accidental').addEventListener('change', function () { state.accidental = this.value; convert(); updateSettingsSummary(); });
     $('minor-style').addEventListener('change', function () { state.minorStyle = this.value; convert(); updateSettingsSummary(); });
-    $('capo').addEventListener('change', function () { state.capo = parseInt(this.value, 10) || 0; convert(); updateSettingsSummary(); });
     $('btn-settings').addEventListener('click', function () { toggleSettings(); });
 
     $('tr-up').addEventListener('click', function () { setTranspose(state.transpose + 1); });
@@ -253,9 +229,97 @@
     }
     $('btn-sample').addEventListener('click', insertSample);
     $('btn-sample-2').addEventListener('click', insertSample);
+    
+    var clearDialog = $('clear-dialog');
     $('btn-clear').addEventListener('click', function () {
-      $('input').value = ''; convert(); $('input').focus();
+      if (!$('input').value.trim()) return; // Not really anything to clear
+      if (clearDialog && clearDialog.showModal) {
+        clearDialog.showModal();
+      } else {
+        // Fallback for browsers that don't support dialog
+        if (confirm('Opravdu chcete vymazat celý text?')) {
+          $('input').value = ''; convert(); $('input').focus();
+        }
+      }
     });
+    
+    $('btn-clear-cancel').addEventListener('click', function() {
+      if (clearDialog && clearDialog.close) clearDialog.close();
+    });
+    
+    $('btn-clear-confirm').addEventListener('click', function() {
+      if (clearDialog && clearDialog.close) clearDialog.close();
+      $('input').value = '';
+      state.inFormat = 'auto';
+      $('in-format').value = 'auto';
+      convert(); 
+      $('input').focus();
+    });
+    
+    var searchPanel = $('search-panel');
+    var btnToggleSearch = $('btn-toggle-search');
+    var btnCloseSearch = $('btn-close-search');
+
+    function toggleSearch() {
+      var isHidden = searchPanel.hidden;
+      searchPanel.hidden = !isHidden;
+      if (isHidden) {
+        btnToggleSearch.style.background = 'var(--accent-soft)';
+        btnToggleSearch.style.color = 'var(--accent)';
+        $('sr-search').focus();
+      } else {
+        btnToggleSearch.style.background = '';
+        btnToggleSearch.style.color = '';
+      }
+    }
+
+    btnToggleSearch.addEventListener('click', toggleSearch);
+    
+    if (btnCloseSearch) {
+      btnCloseSearch.addEventListener('click', function() {
+        searchPanel.hidden = true;
+        btnToggleSearch.style.background = '';
+        btnToggleSearch.style.color = '';
+      });
+    }
+
+    $('btn-replace-all').addEventListener('click', function() {
+      var findStr = $('sr-search').value;
+      var replaceStr = $('sr-replace').value;
+      if (!findStr) return;
+
+      var isCaseSensitive = $('sr-case').checked;
+      var isWord = $('sr-word').checked;
+      var isRegex = $('sr-regex').checked;
+
+      var text = $('input').value;
+      var originalText = text;
+
+      try {
+        if (isRegex || isWord || !isCaseSensitive) {
+          var escapedFind = isRegex ? findStr : findStr.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+          if (isWord) {
+            escapedFind = '\\b' + escapedFind + '\\b';
+          }
+          var flags = 'g' + (isCaseSensitive ? '' : 'i');
+          var re = new RegExp(escapedFind, flags);
+          text = text.replace(re, replaceStr);
+        } else {
+          text = text.split(findStr).join(replaceStr);
+        }
+
+        if (text !== originalText) {
+          $('input').value = text;
+          convert();
+          toast('Nahrazeno');
+        } else {
+          toast('Nenalezeno');
+        }
+      } catch (e) {
+        toast('Chyba ve výrazu');
+      }
+    });
+
     $('btn-swap').addEventListener('click', function () {
       var current = state.inFormat === 'auto' ? (state.detected || resolveInFormat($('input').value).id) : state.inFormat;
       var text = $('output').value;
@@ -273,7 +337,6 @@
       copyText(val);
     });
     $('btn-download').addEventListener('click', download);
-    $('btn-print').addEventListener('click', printSheet);
 
     setupDropZone();
 
@@ -356,12 +419,6 @@
       : 'pisen';
   }
 
-  function printSheet() {
-    if (!$('input').value.trim()) { toast('Není co tisknout'); return; }
-    $('print-area').innerHTML = $('preview').innerHTML || '';
-    window.print();
-  }
-
   var toastId = null;
   function toast(msg) {
     var el = $('toast');
@@ -381,12 +438,22 @@
       document.documentElement.setAttribute('data-theme', 'light');
     }
     fillFormatSelects();
-    fillCapo();
     bind();
     toggleSettings(false);
     updateSettingsSummary();
     setView('code');
-    $('input').value = sampleText();
+    
+    try {
+      var saved = localStorage.getItem('chordmorph_input');
+      if (saved !== null) {
+        $('input').value = saved;
+      } else {
+        $('input').value = sampleText();
+      }
+    } catch (e) {
+      $('input').value = sampleText();
+    }
+    
     convert();
   }
 
