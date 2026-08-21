@@ -268,7 +268,10 @@
       if (isHidden) {
         btnToggleSearch.style.background = 'var(--accent-soft)';
         btnToggleSearch.style.color = 'var(--accent)';
-        $('sr-search').focus();
+        $('sr-search').focus({ preventScroll: true });
+        window.requestAnimationFrame(function () {
+          searchPanel.scrollIntoView({ block: 'start', behavior: 'instant' });
+        });
       } else {
         btnToggleSearch.style.background = '';
         btnToggleSearch.style.color = '';
@@ -349,6 +352,25 @@
       if (targetMatch) {
         input.focus();
         input.setSelectionRange(targetMatch.index, targetMatch.index + targetMatch.length);
+        var lineNumber = text.slice(0, targetMatch.index).split('\n').length - 1;
+        var inputStyle = getComputedStyle(input);
+        var lineHeight = parseFloat(inputStyle.lineHeight) || 0;
+        var paddingTop = parseFloat(inputStyle.paddingTop) || 0;
+        var targetTop = paddingTop + lineNumber * lineHeight;
+        function revealMatch() {
+          var panelRect = searchPanel.getBoundingClientRect();
+          var inputRect = input.getBoundingClientRect();
+          var overlapsInput = panelRect.bottom > inputRect.top && panelRect.top < inputRect.bottom;
+          var coveredTop = overlapsInput ? Math.min(input.clientHeight, Math.max(0, panelRect.bottom - inputRect.top)) : 0;
+          var visibleHeight = Math.max(lineHeight, input.clientHeight - coveredTop);
+          var targetScrollTop = targetTop - coveredTop - Math.max(0, (visibleHeight - lineHeight) / 2);
+          var maxScrollTop = Math.max(0, input.scrollHeight - input.clientHeight);
+          input.scrollTop = Math.min(maxScrollTop, Math.max(0, targetScrollTop));
+        }
+        revealMatch();
+        window.requestAnimationFrame(function () {
+          revealMatch();
+        });
         return true;
       }
       return false;
@@ -356,6 +378,7 @@
 
     $('btn-find-next').addEventListener('click', function() { findNext(false); });
     $('btn-find-prev').addEventListener('click', function() { findNext(true); });
+    $('btn-find').addEventListener('click', function() { findNext(false); });
 
     $('btn-replace').addEventListener('click', function() {
       var input = $('input');
